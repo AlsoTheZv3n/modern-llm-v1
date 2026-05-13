@@ -1,0 +1,5 @@
+encoding=cl100k_base
+vocab_size=100277
+num_tokens=301832
+source=data/tinyshakespeare.txt
+max_tokens=0

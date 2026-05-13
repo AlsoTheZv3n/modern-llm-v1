@@ -1,0 +1,76 @@
+# Build outputs
+build/
+out/
+cmake-build-*/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+
+# Compiled objects
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+*.pdb
+*.exp
+*.ilk
+
+# CUDA artifacts
+*.cubin
+*.fatbin
+*.ptx
+
+# IDE / editor
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.ncb
+
+# .NET / C#
+gui/**/bin/
+gui/**/obj/
+gui/build.log
+llm/build.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Training artifacts
+checkpoints/
+runs/
+logs/
+*.bin
+*.safetensors
+*.gguf
+*.ckpt
+training_log.jsonl
+eval_results.jsonl
+eval_generations.jsonl
+
+# Tokenized data is large + reproducible; keep the .meta sidecar for reference
+data/*.bin
+!data/.gitkeep
+
+# Local secrets / env (defense in depth — none are checked in today, just preventive)
+.env
+.env.*
+*.pem
+*.key
+secrets.json
+
+# OS
+Thumbs.db
+.DS_Store

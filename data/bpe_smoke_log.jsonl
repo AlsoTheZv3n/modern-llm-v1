@@ -1,0 +1,13 @@
+{"step":1,"loss":11.5411,"lr":6e-05,"grad_norm":1.03882,"tokens_seen":2048,"elapsed_sec":0.0927984}
+{"step":20,"loss":9.56764,"lr":0.0012,"grad_norm":0.974331,"tokens_seen":40960,"elapsed_sec":1.19389}
+{"step":40,"loss":6.99318,"lr":0.0024,"grad_norm":0.296107,"tokens_seen":81920,"elapsed_sec":2.36601}
+{"step":50,"loss":7.07913,"val_loss":7.23738,"lr":0.003,"grad_norm":0.293182,"tokens_seen":102400,"elapsed_sec":2.96602}
+{"step":60,"loss":6.83612,"lr":0.0029705,"grad_norm":0.385936,"tokens_seen":122880,"elapsed_sec":3.64411}
+{"step":80,"loss":6.54198,"lr":0.00274217,"grad_norm":0.596468,"tokens_seen":163840,"elapsed_sec":4.77626}
+{"step":100,"loss":6.21718,"val_loss":6.57331,"lr":0.002325,"grad_norm":0.46733,"tokens_seen":204800,"elapsed_sec":5.9091}
+{"step":120,"loss":5.77755,"lr":0.00179111,"grad_norm":0.486888,"tokens_seen":245760,"elapsed_sec":7.04021}
+{"step":140,"loss":5.50936,"lr":0.00123283,"grad_norm":0.483133,"tokens_seen":286720,"elapsed_sec":8.12006}
+{"step":150,"loss":5.59102,"val_loss":6.16979,"lr":0.000975,"grad_norm":0.516115,"tokens_seen":307200,"elapsed_sec":8.72298}
+{"step":160,"loss":5.49818,"lr":0.000746674,"grad_norm":0.490576,"tokens_seen":327680,"elapsed_sec":9.32525}
+{"step":180,"loss":5.54257,"lr":0.000416714,"grad_norm":0.514324,"tokens_seen":368640,"elapsed_sec":10.2695}
+{"step":200,"loss":5.37627,"val_loss":5.99914,"lr":0.0003,"grad_norm":0.496695,"tokens_seen":409600,"elapsed_sec":11.2265}

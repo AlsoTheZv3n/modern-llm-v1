@@ -1,0 +1,5 @@
+encoding=cl100k_base
+vocab_size=100277
+num_tokens=1800000000
+source=hf://HuggingFaceFW/fineweb-edu/sample-10BT/train#text
+max_tokens=1800000000
