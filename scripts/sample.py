@@ -46,6 +46,8 @@ def main() -> int:
     p.add_argument("--seq-len", type=int, default=64)
     p.add_argument("--d-model", type=int, default=128)
     p.add_argument("--n-heads", type=int, default=4)
+    p.add_argument("--n-kv-heads", type=int, default=0,
+                    help="GQA n_kv_heads; 0 = same as n_heads (MHA)")
     p.add_argument("--n-layers", type=int, default=4)
     p.add_argument("--d-ffn", type=int, default=512)
     p.add_argument("--temp", type=float, default=0.8)
@@ -83,6 +85,7 @@ def main() -> int:
         "--seq-len", str(args.seq_len),
         "--d-model", str(args.d_model),
         "--n-heads", str(args.n_heads),
+        "--n-kv-heads", str(args.n_kv_heads),
         "--n-layers", str(args.n_layers),
         "--d-ffn", str(args.d_ffn),
         "--temp", str(args.temp),

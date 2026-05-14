@@ -1,0 +1,149 @@
+<Window x:Class="ModernLLM.Monitor.Views.SamplerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="clr-namespace:ModernLLM.Monitor.Converters"
+        Title="Sample from checkpoint"
+        Height="700" Width="900"
+        Background="#1E1E1E"
+        Foreground="#E0E0E0">
+
+    <Window.Resources>
+        <conv:InverseBoolConverter x:Key="InverseBoolConverter"/>
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="10,4"/>
+            <Setter Property="Margin" Value="3"/>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#252526"/>
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="BorderBrush" Value="#444"/>
+            <Setter Property="Padding" Value="4,3"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+        </Style>
+        <Style x:Key="HeaderText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#AAA"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Margin" Value="0,0,8,2"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Row 0: Checkpoint selector + refresh -->
+        <DockPanel Grid.Row="0" LastChildFill="True" Margin="0,0,0,6">
+            <TextBlock DockPanel.Dock="Left" Style="{StaticResource HeaderText}"
+                       Text="Checkpoint:" Width="80"/>
+            <Button DockPanel.Dock="Right" Content="↻ Refresh"
+                    Command="{Binding RefreshCheckpointsCommand}"/>
+            <ComboBox ItemsSource="{Binding Checkpoints}"
+                      SelectedItem="{Binding SelectedCheckpoint}"
+                      DisplayMemberPath="Display"
+                      Background="#252526"
+                      Foreground="#E0E0E0"
+                      Padding="4,3"
+                      FontFamily="Consolas"/>
+        </DockPanel>
+
+        <!-- Row 1: Meta file path -->
+        <DockPanel Grid.Row="1" LastChildFill="True" Margin="0,0,0,6">
+            <TextBlock DockPanel.Dock="Left" Style="{StaticResource HeaderText}"
+                       Text="Meta file:" Width="80"/>
+            <TextBox Text="{Binding MetaPath, UpdateSourceTrigger=PropertyChanged}"/>
+        </DockPanel>
+
+        <!-- Row 2: Model config (collapsible expander would be nicer; flat for now) -->
+        <Expander Grid.Row="2" Header="Model config (must match the checkpoint)"
+                  Foreground="#AAA" Margin="0,0,0,6" IsExpanded="False">
+            <WrapPanel Margin="10,4">
+                <StackPanel Margin="0,0,12,0">
+                    <TextBlock Style="{StaticResource HeaderText}" Text="d-model"/>
+                    <TextBox Width="70" Text="{Binding DModel}"/>
+                </StackPanel>
+                <StackPanel Margin="0,0,12,0">
+                    <TextBlock Style="{StaticResource HeaderText}" Text="n-heads"/>
+                    <TextBox Width="50" Text="{Binding NHeads}"/>
+                </StackPanel>
+                <StackPanel Margin="0,0,12,0">
+                    <TextBlock Style="{StaticResource HeaderText}" Text="n-kv-heads"/>
+                    <TextBox Width="50" Text="{Binding NKvHeads}"/>
+                </StackPanel>
+                <StackPanel Margin="0,0,12,0">
+                    <TextBlock Style="{StaticResource HeaderText}" Text="n-layers"/>
+                    <TextBox Width="50" Text="{Binding NLayers}"/>
+                </StackPanel>
+                <StackPanel Margin="0,0,12,0">
+                    <TextBlock Style="{StaticResource HeaderText}" Text="d-ffn"/>
+                    <TextBox Width="70" Text="{Binding DFfn}"/>
+                </StackPanel>
+                <StackPanel Margin="0,0,12,0">
+                    <TextBlock Style="{StaticResource HeaderText}" Text="seq-len"/>
+                    <TextBox Width="70" Text="{Binding SeqLen}"/>
+                </StackPanel>
+            </WrapPanel>
+        </Expander>
+
+        <!-- Row 3: Prompt + sample controls -->
+        <Grid Grid.Row="3" Margin="0,0,0,6">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Row="0" Grid.Column="0" Style="{StaticResource HeaderText}" Text="Prompt"/>
+            <TextBlock Grid.Row="0" Grid.Column="1" Style="{StaticResource HeaderText}" Text="num tokens"/>
+            <TextBlock Grid.Row="0" Grid.Column="2" Style="{StaticResource HeaderText}" Text="temperature"/>
+            <TextBlock Grid.Row="0" Grid.Column="3" Style="{StaticResource HeaderText}" Text="seed"/>
+
+            <TextBox Grid.Row="1" Grid.Column="0"
+                     Text="{Binding Prompt, UpdateSourceTrigger=PropertyChanged}"
+                     MinHeight="28"
+                     Margin="0,0,6,0"/>
+            <TextBox Grid.Row="1" Grid.Column="1" Width="70" Text="{Binding NumTokens}" Margin="0,0,6,0"/>
+            <TextBox Grid.Row="1" Grid.Column="2" Width="60" Text="{Binding Temperature, StringFormat={}{0:F2}}" Margin="0,0,6,0"/>
+            <TextBox Grid.Row="1" Grid.Column="3" Width="60" Text="{Binding Seed}"/>
+        </Grid>
+
+        <!-- Row 4: Output -->
+        <Border Grid.Row="4" Background="#252526" BorderBrush="#3C3C3C" BorderThickness="1" Margin="0,4">
+            <TextBox Text="{Binding Output, Mode=OneWay}"
+                     IsReadOnly="True"
+                     TextWrapping="Wrap"
+                     AcceptsReturn="True"
+                     VerticalScrollBarVisibility="Auto"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     FontFamily="Consolas"
+                     Padding="8"/>
+        </Border>
+
+        <!-- Row 5: Buttons + status -->
+        <DockPanel Grid.Row="5" LastChildFill="True" Margin="0,4,0,0">
+            <Button DockPanel.Dock="Right" Content="Cancel"
+                    Command="{Binding CancelCommand}"
+                    IsEnabled="{Binding IsSampling}"/>
+            <Button DockPanel.Dock="Right" Content="Sample ▶"
+                    Command="{Binding SampleCommand}"
+                    IsEnabled="{Binding IsSampling, Converter={StaticResource InverseBoolConverter}}"
+                    FontWeight="Bold"/>
+            <TextBlock Text="{Binding Status}" Foreground="#AAA" Margin="6,0"/>
+        </DockPanel>
+    </Grid>
+</Window>

@@ -1,10 +1,13 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Windows;
 
 using Microsoft.Win32;
 
+using ModernLLM.Monitor.Services;
 using ModernLLM.Monitor.ViewModels;
+using ModernLLM.Monitor.Views;
 
 namespace ModernLLM.Monitor;
 
@@ -16,21 +19,29 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         _vm = (MainViewModel)DataContext;
+        Closing += (_, _) => _vm.Dispose();
 
-        // Auto-discover the modern_gpt log if it exists at the canonical path
-        // (relative to repo root). We walk up a few levels from the binary
-        // directory because debug builds live deep under bin/Debug/...
-        var auto = TryFindDefaultLog();
+        // Auto-discover the most recent training log under runs/, walking up
+        // from the binary directory because debug builds live deep under
+        // bin/Debug/...
+        var auto = TryFindMostRecentLog();
         if (auto != null) _vm.OpenFile(auto);
     }
 
-    private static string? TryFindDefaultLog()
+    private static string? TryFindMostRecentLog()
     {
         var dir = AppContext.BaseDirectory;
         for (int i = 0; i < 8; i++)
         {
-            var candidate = Path.Combine(dir, "runs", "modern_gpt_log.jsonl");
-            if (File.Exists(candidate)) return candidate;
+            var runs = Path.Combine(dir, "runs");
+            if (Directory.Exists(runs))
+            {
+                var newest = Directory.GetFiles(runs, "*.jsonl", SearchOption.TopDirectoryOnly)
+                                       .Select(p => new FileInfo(p))
+                                       .OrderByDescending(f => f.LastWriteTimeUtc)
+                                       .FirstOrDefault();
+                if (newest != null) return newest.FullName;
+            }
             var parent = Directory.GetParent(dir);
             if (parent == null) break;
             dir = parent.FullName;
@@ -59,5 +70,14 @@ public partial class MainWindow : Window
             _vm.CloseFile();
             _vm.OpenFile(p);
         }
+    }
+
+    private void OpenSampler_Click(object sender, RoutedEventArgs e)
+    {
+        var repoRoot = CheckpointBrowser.FindRepoRoot(AppContext.BaseDirectory)
+                       ?? AppContext.BaseDirectory;
+        var samplerVm = new SamplerViewModel(repoRoot);
+        var win = new SamplerWindow(samplerVm) { Owner = this };
+        win.Show();
     }
 }

@@ -15,11 +15,12 @@ using ModernLLM.Monitor.Services;
 
 namespace ModernLLM.Monitor.ViewModels;
 
-public partial class MainViewModel : ObservableObject
+public partial class MainViewModel : ObservableObject, IDisposable
 {
     private const int MaxPoints = 5000;
 
     private JsonlMetricReader? _reader;
+    private readonly NvidiaSmiPoller _gpu = new NvidiaSmiPoller(2.0);
 
     public ObservableCollection<ObservablePoint> TrainLossPoints { get; } = new();
     public ObservableCollection<ObservablePoint> ValLossPoints { get; } = new();
@@ -63,6 +64,29 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _status = "Idle";
 
+    // GPU stats — populated by NvidiaSmiPoller. GpuAvailable goes false on
+    // first nvidia-smi failure (e.g. not installed / not on PATH).
+    [ObservableProperty]
+    private bool _gpuAvailable;
+
+    [ObservableProperty]
+    private int _gpuUtilPct;
+
+    [ObservableProperty]
+    private int _gpuVramUsedMB;
+
+    [ObservableProperty]
+    private int _gpuVramTotalMB;
+
+    [ObservableProperty]
+    private int _gpuTempC;
+
+    [ObservableProperty]
+    private double _gpuPowerW;
+
+    [ObservableProperty]
+    private string _gpuStatus = "GPU: querying nvidia-smi…";
+
     public MainViewModel()
     {
         LossSeries = new ISeries[]
@@ -88,6 +112,39 @@ public partial class MainViewModel : ObservableObject
                 LineSmoothness = 0,
             }
         };
+
+        _gpu.OnSample += HandleGpuSample;
+        _gpu.OnError += HandleGpuError;
+        _gpu.Start();
+    }
+
+    private void HandleGpuSample(GpuStats s)
+    {
+        Application.Current?.Dispatcher.Invoke(() =>
+        {
+            GpuAvailable = true;
+            GpuUtilPct = s.UtilPct;
+            GpuVramUsedMB = s.VramUsedMB;
+            GpuVramTotalMB = s.VramTotalMB;
+            GpuTempC = s.TempC;
+            GpuPowerW = s.PowerW;
+            GpuStatus = $"GPU: {s.UtilPct}% / {s.VramUsedMB:N0}/{s.VramTotalMB:N0} MB / {s.TempC}°C / {s.PowerW:F0} W";
+        });
+    }
+
+    private void HandleGpuError(string msg)
+    {
+        Application.Current?.Dispatcher.Invoke(() =>
+        {
+            GpuAvailable = false;
+            GpuStatus = $"GPU: {msg}";
+        });
+    }
+
+    public void Dispose()
+    {
+        _gpu.Dispose();
+        _reader?.Dispose();
     }
 
     public void OpenFile(string path)
