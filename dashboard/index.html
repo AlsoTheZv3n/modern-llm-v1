@@ -1,0 +1,584 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ModernLLM Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+    .num { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+    .card { background:#15181d; border:1px solid #23272f; border-radius:6px; }
+    .label { color:#7a808a; font-size:11px; letter-spacing:.04em; text-transform:uppercase; }
+    .muted { color:#94999c; }
+    .chip { background:#1f2329; color:#94999c; padding:2px 8px; border-radius:9999px; font-size:11px; }
+    .chip-blue { background:rgba(57,148,255,.18); color:#5fa8ff; }
+    .chip-green { background:rgba(46,196,84,.18); color:#39d160; }
+    .chip-orange { background:rgba(245,158,11,.18); color:#f3b25d; }
+    .chip-red { background:rgba(239,68,68,.18); color:#f87171; }
+    /* slim progress bar */
+    .bar-track { height:6px; background:#1a1d23; border-radius:9999px; overflow:hidden; }
+    .bar-fill  { height:100%; transition:width .25s ease; }
+    .conn-dot { width:8px; height:8px; border-radius:9999px; display:inline-block; }
+</style>
+</head>
+<body class="bg-[#0d1015] text-[#e6e8ec] min-h-screen">
+<div class="max-w-[1280px] mx-auto p-6">
+
+    <!-- ============================================================
+         Top progress row
+         ============================================================ -->
+    <div class="flex items-baseline justify-between mb-3">
+        <div class="flex items-baseline gap-3">
+            <span class="label">Step</span>
+            <span class="num text-3xl font-semibold" id="step">—</span>
+            <span class="muted">/ <span class="num" id="totalSteps">—</span></span>
+            <span class="chip chip-blue num" id="progressPct">—</span>
+        </div>
+        <div class="flex items-center gap-3">
+            <span class="conn-dot" id="connDot" style="background:#666"></span>
+            <span class="muted text-sm" id="connText">connecting…</span>
+            <span class="muted">·</span>
+            <span class="label">ETA</span>
+            <span class="num text-lg" id="eta">—</span>
+        </div>
+    </div>
+
+    <!-- step progress bar -->
+    <div class="bar-track mb-2">
+        <div class="bar-fill" id="progressBar" style="width:0%;background:#3994ff"></div>
+    </div>
+
+    <!-- tokens line -->
+    <div class="flex items-baseline justify-between text-sm muted mb-6">
+        <div>
+            <span class="num" id="tokensSeen">—</span>
+            / <span class="num" id="totalTokens">—</span> tokens
+            (<span class="num" id="tokensPct">—</span>)
+        </div>
+        <div>
+            elapsed <span class="num" id="elapsed">—</span> ·
+            <span class="num" id="tokPerSec">—</span> tok/s
+        </div>
+    </div>
+
+    <!-- ============================================================
+         4 metric tiles
+         ============================================================ -->
+    <div class="grid grid-cols-4 gap-3 mb-3">
+
+        <div class="card p-4">
+            <div class="label">Loss</div>
+            <div class="num text-3xl mt-1" id="loss">—</div>
+            <div class="text-xs muted mt-2">
+                <span class="text-green-400" id="valArrow">↓</span>
+                val <span class="num" id="lastVal">—</span>
+                <span class="muted" id="lastValAt"></span>
+            </div>
+        </div>
+
+        <div class="card p-4">
+            <div class="label">Learn rate</div>
+            <div class="num text-3xl mt-1" id="lr">—</div>
+            <div class="text-xs muted mt-2">cosine decay</div>
+        </div>
+
+        <div class="card p-4">
+            <div class="label">Grad norm</div>
+            <div class="num text-3xl mt-1" id="gnorm">—</div>
+            <div class="text-xs muted mt-2" id="gnormStatus">—</div>
+        </div>
+
+        <div class="card p-4">
+            <div class="label">MFU</div>
+            <div class="num text-3xl mt-1" id="mfu">—</div>
+            <div class="text-xs muted mt-2" id="mfuHint">target 50 %+</div>
+        </div>
+
+    </div>
+
+    <!-- ============================================================
+         Loss chart
+         ============================================================ -->
+    <div class="card p-4 mb-3">
+        <div class="flex items-center justify-between mb-2">
+            <div class="label">Loss</div>
+            <div class="flex gap-3 text-xs">
+                <span><span class="inline-block w-2 h-2 rounded-full" style="background:#3994ff"></span> train</span>
+                <span><span class="inline-block w-2 h-2 rounded-full" style="background:#f3b25d"></span> val</span>
+                <span><span class="inline-block w-2 h-2 rounded-full" style="background:#5fa8ff"></span> EMA</span>
+                <label class="muted ml-3">
+                    <input type="checkbox" id="logY" class="align-middle"/>
+                    auto-zoom y
+                </label>
+            </div>
+        </div>
+        <div style="height:280px"><canvas id="lossChart"></canvas></div>
+    </div>
+
+    <!-- ============================================================
+         Sparkline pair
+         ============================================================ -->
+    <div class="grid grid-cols-2 gap-3 mb-3">
+
+        <div class="card p-4">
+            <div class="label mb-2">Throughput · tokens/sec</div>
+            <div style="height:90px"><canvas id="tputChart"></canvas></div>
+            <div class="text-xs muted mt-2">
+                <span class="num" id="tputCurrent">—</span> tok/s
+                · peak <span class="num" id="tputPeak">—</span>
+            </div>
+        </div>
+
+        <div class="card p-4">
+            <div class="label mb-2">Gradient norm</div>
+            <div style="height:90px"><canvas id="gnormChart"></canvas></div>
+            <div class="text-xs muted mt-2">
+                <span class="num" id="gnormCurrent">—</span>
+                · clip @ 1.0
+                · <span class="num" id="clipEvents">0</span> events
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ============================================================
+         GPU footer
+         ============================================================ -->
+    <div class="card p-4 mb-3">
+        <div class="grid grid-cols-4 gap-6 items-center">
+            <div>
+                <div class="label">GPU util</div>
+                <div class="num text-2xl mt-1" id="gpuUtil">—</div>
+                <div class="bar-track mt-2"><div class="bar-fill" id="gpuUtilBar" style="width:0%;background:#39d160"></div></div>
+            </div>
+            <div>
+                <div class="label">VRAM</div>
+                <div class="num text-2xl mt-1">
+                    <span id="vramUsed">—</span>
+                    <span class="text-sm muted">/ <span id="vramTotal">—</span> GB</span>
+                </div>
+                <div class="bar-track mt-2"><div class="bar-fill" id="vramBar" style="width:0%;background:#f3b25d"></div></div>
+            </div>
+            <div>
+                <div class="label">Temp</div>
+                <div class="num text-2xl mt-1"><span id="gpuTemp">—</span> °C</div>
+                <div class="muted text-xs mt-2" id="gpuTempStatus">—</div>
+            </div>
+            <div>
+                <div class="label">Power</div>
+                <div class="num text-2xl mt-1"><span id="gpuPower">—</span> W</div>
+                <div class="muted text-xs mt-2" id="gpuPowerStatus">—</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="text-xs muted text-center mt-6" id="footer">—</div>
+</div>
+
+<script>
+// =================================================================
+// State
+// =================================================================
+const state = {
+    config: null,
+    history: [],          // raw JSONL lines, oldest first
+    gnormHistory: [],     // {step, gnorm} for sparkline
+    tputHistory: [],      // {step, tps}
+    tputPeak: 0,
+    clipEvents: 0,
+    lastVal: null,
+    lastValAt: null,
+    lastGpu: null,
+};
+
+const EMA_ALPHA = 0.1;
+const TPUT_WINDOW = 5;    // rolling window for tokens/sec smoothing
+const MAX_POINTS = 4000;
+const SPARK_POINTS = 200;
+
+// =================================================================
+// Helpers
+// =================================================================
+function fmtInt(n, decimals = 0) {
+    if (n === null || n === undefined || Number.isNaN(n)) return "—";
+    return n.toLocaleString("en-US", { maximumFractionDigits: decimals });
+}
+function fmtCompact(n) {
+    if (n === null || n === undefined || Number.isNaN(n)) return "—";
+    if (n >= 1e9) return (n / 1e9).toFixed(2) + "B";
+    if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + "k";
+    return Math.round(n).toString();
+}
+function fmtDuration(sec) {
+    if (!sec || sec <= 0 || !isFinite(sec)) return "—";
+    sec = Math.round(sec);
+    const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600);
+    const m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    if (d) return `${d}d ${h}h ${m}m`;
+    if (h) return `${h}h ${m}m`;
+    if (m) return `${m}m ${s}s`;
+    return `${s}s`;
+}
+function fmtPct(x, digits = 1) {
+    if (x === null || x === undefined || Number.isNaN(x)) return "—";
+    return x.toFixed(digits) + " %";
+}
+
+// =================================================================
+// Charts
+// =================================================================
+Chart.defaults.color = "#7a808a";
+Chart.defaults.borderColor = "#23272f";
+Chart.defaults.font.family = "ui-monospace, Menlo, Consolas, monospace";
+Chart.defaults.font.size = 10;
+
+const lossChart = new Chart(document.getElementById("lossChart"), {
+    type: "line",
+    data: {
+        datasets: [
+            {
+                label: "train",
+                data: [],
+                borderColor: "rgba(57,148,255,0.35)",  // faint blue, looks like noise band
+                backgroundColor: "transparent",
+                borderWidth: 1,
+                pointRadius: 0,
+                tension: 0,
+            },
+            {
+                label: "val",
+                data: [],
+                borderColor: "#f3b25d",
+                backgroundColor: "transparent",
+                borderWidth: 1.5,
+                pointRadius: 3.5,
+                pointBackgroundColor: "#f3b25d",
+                showLine: true,
+                tension: 0,
+            },
+            {
+                label: "EMA",
+                data: [],
+                borderColor: "#5fa8ff",
+                backgroundColor: "transparent",
+                borderWidth: 2.5,
+                pointRadius: 0,
+                tension: 0.25,
+            },
+        ],
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        parsing: false,
+        normalized: true,
+        plugins: { legend: { display: false }, tooltip: { mode: "index", intersect: false } },
+        interaction: { mode: "index", intersect: false },
+        scales: {
+            x: { type: "linear", title: { display: true, text: "step" }, grid: { color: "#181b20" } },
+            y: { title: { display: true, text: "loss" }, beginAtZero: false, grid: { color: "#181b20" } },
+        },
+    },
+});
+
+function makeSpark(canvasId, color) {
+    return new Chart(document.getElementById(canvasId), {
+        type: "line",
+        data: { datasets: [{
+            data: [], borderColor: color, backgroundColor: "transparent",
+            borderWidth: 1.5, pointRadius: 0, tension: 0.3,
+        }] },
+        options: {
+            responsive: true, maintainAspectRatio: false, animation: false, parsing: false,
+            plugins: { legend: { display: false }, tooltip: { enabled: false } },
+            scales: {
+                x: { type: "linear", display: false },
+                y: { display: false, beginAtZero: false },
+            },
+        },
+    });
+}
+const tputChart = makeSpark("tputChart", "#39d160");
+const gnormChart = makeSpark("gnormChart", "#a78bfa");
+
+// =================================================================
+// Render
+// =================================================================
+// Dedupe by step (later entries win — i.e. post-resume replaces pre-resume
+// for the same step) and sort ascending. Without this, the resume creates
+// duplicate step values that Chart.js draws as backwards-zigzag lines.
+function dedupeSortByStep(points) {
+    const byStep = new Map();
+    for (const p of points) byStep.set(p.x, p);
+    return [...byStep.values()].sort((a, b) => a.x - b.x);
+}
+
+function updateLossChart() {
+    const trainRaw = state.history
+        .filter(h => h.loss !== undefined && !Number.isNaN(h.loss))
+        .map(h => ({ x: h.step, y: h.loss }));
+    const valRaw = state.history
+        .filter(h => h.val_loss !== undefined && !Number.isNaN(h.val_loss))
+        .map(h => ({ x: h.step, y: h.val_loss }));
+
+    const train = dedupeSortByStep(trainRaw);
+    const val = dedupeSortByStep(valRaw);
+
+    // EMA of train loss (in step order)
+    const ema = [];
+    let s = null;
+    for (const p of train) {
+        s = s === null ? p.y : s * (1 - EMA_ALPHA) + p.y * EMA_ALPHA;
+        ema.push({ x: p.x, y: s });
+    }
+
+    const cap = (arr) => arr.length <= MAX_POINTS ? arr : arr.slice(arr.length - MAX_POINTS);
+    lossChart.data.datasets[0].data = cap(train);
+    lossChart.data.datasets[1].data = cap(val);
+    lossChart.data.datasets[2].data = cap(ema);
+
+    // Auto-zoom: clip BOTH X and Y to the recent window. Otherwise the EMA
+    // line drawn for early steps falls outside the visible Y range and looks
+    // like it "starts in mid-air" at the left of the chart.
+    const autoZoom = document.getElementById("logY").checked;
+    if (autoZoom && train.length > 0) {
+        const maxStep = train[train.length - 1].x;
+        const span = Math.max(1000, Math.floor(maxStep / 3));
+        const cutoff = maxStep - span;
+        const recent = train.filter(p => p.x >= cutoff);
+        if (recent.length > 1) {
+            const ys = recent.map(p => p.y);
+            const lo = Math.min(...ys);
+            const hi = Math.max(...ys);
+            const pad = Math.max(0.05, (hi - lo) * 0.25);
+            lossChart.options.scales.y.min = Math.max(0, lo - pad);
+            lossChart.options.scales.y.max = hi + pad;
+            lossChart.options.scales.x.min = cutoff;
+            lossChart.options.scales.x.max = maxStep + (maxStep * 0.02);
+        } else {
+            lossChart.options.scales.y.min = undefined;
+            lossChart.options.scales.y.max = undefined;
+            lossChart.options.scales.x.min = undefined;
+            lossChart.options.scales.x.max = undefined;
+        }
+    } else {
+        lossChart.options.scales.y.min = undefined;
+        lossChart.options.scales.y.max = undefined;
+        lossChart.options.scales.x.min = undefined;
+        lossChart.options.scales.x.max = undefined;
+    }
+
+    lossChart.update();
+}
+
+function updateSparks() {
+    // dedupe+sort to avoid backwards-line zigzag at the resume boundary
+    const tputData = dedupeSortByStep(
+        state.tputHistory.map(p => ({ x: p.step, y: p.tps }))
+    ).slice(-SPARK_POINTS);
+    const gnormData = dedupeSortByStep(
+        state.gnormHistory.map(p => ({ x: p.step, y: p.g }))
+    ).slice(-SPARK_POINTS);
+    tputChart.data.datasets[0].data = tputData;
+    gnormChart.data.datasets[0].data = gnormData;
+    tputChart.update();
+    gnormChart.update();
+}
+
+function classifyMFU(mfu) {
+    if (mfu >= 50) return ["chip chip-green", "healthy"];
+    if (mfu >= 30) return ["chip chip-orange", "target 50 %+"];
+    return ["chip chip-red", "low — bottleneck?"];
+}
+
+function classifyGnorm(g, clipped) {
+    if (clipped) return "clipped — high gradient";
+    if (g === null || g === undefined || Number.isNaN(g)) return "—";
+    if (g > 5) return "high";
+    if (g > 2) return "elevated";
+    return "stable";
+}
+
+function applyLatest() {
+    if (state.history.length === 0) return;
+    const h = state.history[state.history.length - 1];
+    document.getElementById("step").textContent = fmtInt(h.step);
+    document.getElementById("loss").textContent = h.loss?.toFixed(3) ?? "—";
+    document.getElementById("lr").textContent = h.lr !== undefined ? h.lr.toExponential(2) : "—";
+    document.getElementById("gnorm").textContent = h.grad_norm?.toFixed(3) ?? "—";
+    document.getElementById("tokensSeen").textContent = fmtCompact(h.tokens_seen);
+    document.getElementById("elapsed").textContent = fmtDuration(h.elapsed_sec);
+
+    const cfg = state.config || {};
+    const totalSteps = cfg.total_steps || 0;
+    const totalTokens = cfg.total_tokens || 0;
+    document.getElementById("totalSteps").textContent = fmtInt(totalSteps);
+    document.getElementById("totalTokens").textContent = fmtCompact(totalTokens);
+
+    const progressPct = totalSteps > 0 ? Math.min(100, 100 * h.step / totalSteps) : 0;
+    const tokensPct = totalTokens > 0 ? Math.min(100, 100 * h.tokens_seen / totalTokens) : 0;
+    document.getElementById("progressPct").textContent = fmtPct(progressPct);
+    document.getElementById("tokensPct").textContent = fmtPct(tokensPct);
+    document.getElementById("progressBar").style.width = progressPct + "%";
+
+    // Throughput from rolling window — but only within the CURRENT session.
+    // Trainer resume resets elapsed_sec to 0, so we slice from the last point
+    // where elapsed_sec went backwards.
+    const sessionStart = (() => {
+        for (let i = state.history.length - 1; i > 0; i--) {
+            if (state.history[i].elapsed_sec < state.history[i - 1].elapsed_sec) {
+                return i;
+            }
+        }
+        return 0;
+    })();
+    const sessionHistory = state.history.slice(sessionStart);
+    const tputWin = sessionHistory.slice(-TPUT_WINDOW);
+
+    let tps = NaN, secPerStep = NaN;
+    if (tputWin.length >= 2) {
+        const first = tputWin[0], last = tputWin[tputWin.length - 1];
+        const dt = last.elapsed_sec - first.elapsed_sec;
+        const dn = last.tokens_seen - first.tokens_seen;
+        const ds = last.step - first.step;
+        if (dt > 0 && dn > 0) tps = dn / dt;
+        if (dt > 0 && ds > 0) secPerStep = dt / ds;
+    }
+    document.getElementById("tokPerSec").textContent = isNaN(tps) ? "—" : fmtCompact(tps);
+
+    // ETA from throughput
+    let etaText = "—";
+    if (!isNaN(secPerStep) && totalSteps > 0) {
+        const remainingSteps = Math.max(0, totalSteps - h.step);
+        etaText = fmtDuration(remainingSteps * secPerStep);
+    }
+    document.getElementById("eta").textContent = etaText;
+
+    // Last val
+    if (state.lastVal !== null) {
+        document.getElementById("lastVal").textContent = state.lastVal.toFixed(3);
+        document.getElementById("lastValAt").textContent = ` @ step ${fmtInt(state.lastValAt)}`;
+        document.getElementById("valArrow").textContent = state.lastVal < h.loss ? "↓" : "↑";
+        document.getElementById("valArrow").className = state.lastVal < h.loss ? "text-green-400" : "text-orange-400";
+    }
+
+    // MFU = 6 * N_params * tokens_per_sec / peak_FLOPS
+    const params = cfg.params || 0;
+    const peakTflops = cfg.peak_tflops || 35;
+    let mfuPct = NaN;
+    if (params > 0 && !isNaN(tps)) {
+        const achievedTflops = 6 * params * tps / 1e12;
+        mfuPct = 100 * achievedTflops / peakTflops;
+    }
+    document.getElementById("mfu").textContent = isNaN(mfuPct) ? "—" : mfuPct.toFixed(0) + " %";
+    const [_, hint] = classifyMFU(mfuPct);
+    document.getElementById("mfuHint").textContent = hint;
+
+    // Gnorm status
+    const clipped = (h.grad_norm || 0) >= 0.99;
+    if (clipped) state.clipEvents += 1;
+    document.getElementById("gnormStatus").textContent = classifyGnorm(h.grad_norm, false);
+    document.getElementById("gnormCurrent").textContent = h.grad_norm?.toFixed(3) ?? "—";
+    document.getElementById("clipEvents").textContent = state.clipEvents;
+
+    // Throughput peak + current display under spark
+    if (!isNaN(tps)) {
+        state.tputPeak = Math.max(state.tputPeak, tps);
+        document.getElementById("tputCurrent").textContent = fmtInt(tps);
+        document.getElementById("tputPeak").textContent = fmtInt(state.tputPeak);
+    }
+}
+
+function applyGpu(s) {
+    state.lastGpu = s;
+    document.getElementById("gpuUtil").textContent = s.util_pct + " %";
+    document.getElementById("gpuUtilBar").style.width = s.util_pct + "%";
+    document.getElementById("vramUsed").textContent = (s.vram_used_mb / 1024).toFixed(2);
+    document.getElementById("vramTotal").textContent = (s.vram_total_mb / 1024).toFixed(0);
+    const vp = s.vram_total_mb > 0 ? 100 * s.vram_used_mb / s.vram_total_mb : 0;
+    document.getElementById("vramBar").style.width = vp + "%";
+    document.getElementById("gpuTemp").textContent = s.temp_c;
+    document.getElementById("gpuPower").textContent = Math.round(s.power_w);
+    document.getElementById("gpuTempStatus").textContent =
+        s.temp_c >= 85 ? "throttling risk" : s.temp_c >= 75 ? "warm" : "ok";
+    document.getElementById("gpuPowerStatus").textContent =
+        s.power_w >= 320 ? "max" : s.power_w >= 200 ? "heavy" : "light";
+}
+
+// =================================================================
+// SSE
+// =================================================================
+function setConn(state_, label) {
+    const dot = document.getElementById("connDot");
+    const txt = document.getElementById("connText");
+    if (state_ === "open")    { dot.style.background = "#39d160"; txt.textContent = label || "live"; }
+    if (state_ === "closed")  { dot.style.background = "#f87171"; txt.textContent = label || "disconnected"; }
+    if (state_ === "warming") { dot.style.background = "#f3b25d"; txt.textContent = label || "loading…"; }
+}
+
+function ingestTrain(obj) {
+    state.history.push(obj);
+    if (obj.val_loss !== undefined && !Number.isNaN(obj.val_loss)) {
+        state.lastVal = obj.val_loss;
+        state.lastValAt = obj.step;
+    }
+    if (obj.grad_norm !== undefined) {
+        state.gnormHistory.push({ step: obj.step, g: obj.grad_norm });
+    }
+
+    // Compute per-line throughput between last two lines
+    const n = state.history.length;
+    if (n >= 2) {
+        const a = state.history[n - 2], b = state.history[n - 1];
+        const dt = b.elapsed_sec - a.elapsed_sec;
+        const dn = b.tokens_seen - a.tokens_seen;
+        if (dt > 0 && dn > 0) {
+            state.tputHistory.push({ step: b.step, tps: dn / dt });
+        }
+    }
+}
+
+const sse = new EventSource("/stream");
+setConn("warming");
+sse.onmessage = (msg) => {
+    let ev;
+    try { ev = JSON.parse(msg.data); } catch { return; }
+    if (ev.type === "config") {
+        state.config = ev;
+        setConn("warming", "bootstrapping…");
+    } else if (ev.type === "train") {
+        ingestTrain(ev);
+        applyLatest();
+        // Avoid redrawing the heavy chart on every single line during bootstrap;
+        // do it on a timer instead.
+        scheduleChartRefresh();
+        setConn("open", "live");
+    } else if (ev.type === "gpu") {
+        applyGpu(ev);
+    } else if (ev.type === "gpu_error") {
+        document.getElementById("gpuUtil").textContent = "—";
+    }
+};
+sse.onerror = () => setConn("closed", "reconnecting…");
+
+let chartRefreshTimer = null;
+function scheduleChartRefresh() {
+    if (chartRefreshTimer !== null) return;
+    chartRefreshTimer = setTimeout(() => {
+        chartRefreshTimer = null;
+        updateLossChart();
+        updateSparks();
+    }, 250);
+}
+
+document.getElementById("logY").addEventListener("change", updateLossChart);
+document.getElementById("logY").checked = true;
+
+document.getElementById("footer").textContent = `tail · ${location.host}`;
+</script>
+</body>
+</html>

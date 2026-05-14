@@ -109,29 +109,100 @@
             </Grid>
         </Border>
 
-        <!-- Training stats line -->
-        <WrapPanel Grid.Row="2" Margin="10,8" Orientation="Horizontal">
-            <TextBlock Style="{StaticResource StatLabel}" Text="step"/>
-            <TextBlock Style="{StaticResource StatValue}" Text="{Binding Step}"/>
+        <!-- Progress header + training stats -->
+        <StackPanel Grid.Row="2" Margin="10,8,10,4">
 
-            <TextBlock Style="{StaticResource StatLabel}" Text="loss"/>
-            <TextBlock Style="{StaticResource StatValue}" Text="{Binding Loss, StringFormat={}{0:F4}}"/>
+            <!-- Big progress row: Step X / Y  [bar]  ETA -->
+            <Grid Margin="0,0,0,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
 
-            <TextBlock Style="{StaticResource StatLabel}" Text="val"/>
-            <TextBlock Style="{StaticResource StatValue}" Text="{Binding ValLoss, StringFormat={}{0:F4}}"/>
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource StatLabel}" Text="step"/>
+                    <TextBlock FontFamily="Consolas" FontSize="16" FontWeight="Bold"
+                               Foreground="#E0E0E0" Margin="0,0,2,0"
+                               Text="{Binding Step, StringFormat={}{0:N0}}"/>
+                    <TextBlock FontFamily="Consolas" FontSize="14" Foreground="#888" Text=" / "/>
+                    <TextBox FontFamily="Consolas" FontSize="14" Width="70"
+                             Background="#252526" Foreground="#888" BorderBrush="#3C3C3C"
+                             BorderThickness="1" Padding="2,0"
+                             Text="{Binding TotalSteps, UpdateSourceTrigger=PropertyChanged}"/>
+                    <TextBlock Style="{StaticResource StatLabel}" Margin="8,0,4,0" Text="("/>
+                    <TextBlock Style="{StaticResource StatValue}" Margin="0"
+                               Text="{Binding ProgressPct, StringFormat={}{0:F1}%}"/>
+                    <TextBlock Style="{StaticResource StatLabel}" Margin="0,0,8,0" Text=")"/>
+                </StackPanel>
 
-            <TextBlock Style="{StaticResource StatLabel}" Text="lr"/>
-            <TextBlock Style="{StaticResource StatValue}" Text="{Binding Lr, StringFormat={}{0:E2}}"/>
+                <ProgressBar Grid.Column="1"
+                             Value="{Binding ProgressPct, Mode=OneWay}"
+                             Maximum="100"
+                             Foreground="#5FB85F"
+                             Background="#1B1B1C"
+                             BorderBrush="#444"
+                             BorderThickness="1"
+                             Height="18"
+                             Margin="12,2"/>
 
-            <TextBlock Style="{StaticResource StatLabel}" Text="gnorm"/>
-            <TextBlock Style="{StaticResource StatValue}" Text="{Binding GradNorm, StringFormat={}{0:F3}}"/>
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <TextBlock FontFamily="Consolas" FontSize="13" Foreground="#E0E0E0"
+                               Text="{Binding EtaText}"/>
+                </StackPanel>
+            </Grid>
 
-            <TextBlock Style="{StaticResource StatLabel}" Text="tokens"/>
-            <TextBlock Style="{StaticResource StatValue}" Text="{Binding TokensSeen, StringFormat={}{0:N0}}"/>
+            <!-- Throughput + tokens progress -->
+            <Grid Margin="0,0,0,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" FontFamily="Consolas" FontSize="12"
+                           Foreground="#AAA" Text="{Binding ThroughputText}"/>
+                <ProgressBar Grid.Column="1"
+                             Value="{Binding TokensPct, Mode=OneWay}"
+                             Maximum="100"
+                             Foreground="#3994FF"
+                             Background="#1B1B1C"
+                             BorderBrush="#444"
+                             BorderThickness="1"
+                             Height="10"
+                             Margin="12,2"/>
+                <TextBlock Grid.Column="2" FontFamily="Consolas" FontSize="12"
+                           Foreground="#AAA">
+                    <Run Text="{Binding TokensSeen, StringFormat={}{0:N0}, Mode=OneWay}"/>
+                    <Run Text=" tok ("/>
+                    <Run Text="{Binding TokensPct, StringFormat={}{0:F1}, Mode=OneWay}"/>
+                    <Run Text="% of "/>
+                    <Run Text="{Binding TotalTokens, StringFormat={}{0:N0}, Mode=OneWay}"/>
+                    <Run Text=")"/>
+                </TextBlock>
+            </Grid>
 
-            <TextBlock Style="{StaticResource StatLabel}" Text="elapsed"/>
-            <TextBlock Style="{StaticResource StatValue}" Text="{Binding ElapsedSec, StringFormat={}{0:F1}s}"/>
-        </WrapPanel>
+            <!-- Detail stats line -->
+            <WrapPanel Orientation="Horizontal">
+                <TextBlock Style="{StaticResource StatLabel}" Text="loss"/>
+                <TextBlock Style="{StaticResource StatValue}" Text="{Binding Loss, StringFormat={}{0:F4}}"/>
+
+                <TextBlock Style="{StaticResource StatLabel}" Text="last val"/>
+                <TextBlock Style="{StaticResource StatValue}" Text="{Binding LastValLoss, StringFormat={}{0:F4}}"/>
+                <TextBlock Style="{StaticResource StatLabel}" Text="{Binding LastValAt}"/>
+
+                <TextBlock Style="{StaticResource StatLabel}" Text="lr"/>
+                <TextBlock Style="{StaticResource StatValue}" Text="{Binding Lr, StringFormat={}{0:E2}}"/>
+
+                <TextBlock Style="{StaticResource StatLabel}" Text="gnorm"/>
+                <TextBlock Style="{StaticResource StatValue}" Text="{Binding GradNorm, StringFormat={}{0:F3}}"/>
+
+                <TextBlock Style="{StaticResource StatLabel}" Text="elapsed"/>
+                <TextBlock Style="{StaticResource StatValue}" Text="{Binding ElapsedSec, StringFormat={}{0:F1}s}"/>
+
+                <CheckBox Content="auto-zoom Y" IsChecked="{Binding AutoZoomY}"
+                          Foreground="#AAA" VerticalAlignment="Center" Margin="20,0,0,0"/>
+            </WrapPanel>
+        </StackPanel>
 
         <!-- Chart -->
         <Border Grid.Row="3" Background="#2D2D30" Margin="10,0">
